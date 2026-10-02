@@ -79,10 +79,11 @@ on:
         default: false
       allowed_bots:
         description: |
-          Bot actors whose PRs still get reviewed. Empty by default, matching the action's own
-          behaviour of rejecting bot actors — a bot's PR is usually mechanical (a version bump, a
-          release merge, an image-tag update), so reviewing it produces suggestions a human then has
-          to dismiss one by one. Set this only for a bot whose PRs genuinely warrant review.
+          Bot actors whose PRs still get reviewed. Empty by default, in which case a bot-triggered
+          run is skipped (not failed) — a bot's PR is usually mechanical (a version bump, a release
+          merge, an image-tag update, a generated-file sync), so reviewing it produces suggestions a
+          human then has to dismiss one by one. Set this only for a bot whose PRs genuinely warrant
+          review; a non-empty value also lets the action itself decide which bots may run.
         required: false
         type: string
         default: ''
@@ -146,8 +147,14 @@ jobs:
     # Skip drafts: every `synchronize` push otherwise fires a full review over WIP commits nobody
     # has asked about yet. Callers add `ready_for_review` to their trigger types so the review runs
     # once when the author actually marks the PR ready.
+    #
+    # Skip bot actors unless the caller lists some in `allowed_bots`. The review action refuses a
+    # bot-triggered run and fails the job, so without this a dependency bump or a generated-file sync
+    # PR shows a red check for a review nobody asked for. (Same rule the action applies, moved up so
+    # the job is skipped rather than failed.)
     if: >-
       github.event.pull_request.draft == false &&
+      (github.event.sender.type != 'Bot' || inputs.allowed_bots != '') &&
       (inputs.is_public_repo == false ||
        github.event.pull_request.head.repo.full_name == github.repository)
     env:
