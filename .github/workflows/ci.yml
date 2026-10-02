@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check-review-prompt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The shared review workflow cannot be exercised by calling it (it needs a PR event and AWS),
+      # so its one piece of real logic, the prompt/diff-scoping step, is checked directly.
+      - name: Check review prompt logic
+        run: bash scripts/check-review-prompt.sh
+
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint workflows
+        uses: raven-actions/actionlint@v2
