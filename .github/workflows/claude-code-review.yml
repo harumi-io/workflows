@@ -295,7 +295,11 @@ jobs:
           covers (for example \"fixed at src/a.py:41, covers the empty-list case\"); if you cannot point
           at such a line, it is Not addressed. Do not restate the original explanation. End with one line: \"All earlier findings
           addressed.\" or \"N of M earlier findings still open.\" If the PR has no earlier findings,
-          post one line saying so. Post nothing else."
+          post one line saying so. Finish that comment with this exact line, on a line of its own, where
+          M is the number of earlier findings that are Not addressed (0 if none). A script reads it to
+          know the round is finished, so never omit it and never change its shape:
+          <!-- review-done sha=${HEAD_SHA} open=M -->
+          Post nothing else."
             else
               REVIEW_MODE=full
               # Read from the environment (not interpolated into the script) so backticks and $() in
@@ -398,6 +402,11 @@ jobs:
           you reviewed and anything you deliberately did not get to. If you found no issues at all,
           that summary comment is the only thing you post.
 
+          End that summary comment with this exact line, on a line of its own, where N is the number of
+          findings you posted in this run (0 if none). A script reads it to know the review is finished,
+          so never omit it and never change its shape:
+          <!-- review-done sha=${HEAD_SHA} findings=N -->
+
           You cannot run tests, linters or builds here, and you should not try: CI runs them. Never
           say, in a finding or in the summary, that you did not run the tests, the migration or the
           build; that is expected and tells the reader nothing. If it helps to know whether CI
@@ -469,9 +478,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           gh pr comment "$PR" --body "Automated review did not complete (turn ceiling, timeout or
           error) — see [the run log]($RUN_URL). Any findings above were posted before it stopped;
           treat the rest of the diff as unreviewed. The next push re-reviews this range from
-          scratch." || echo "could not post the incomplete-review notice"
+          scratch.
+
+          <!-- review-incomplete sha=$HEAD_SHA -->" || echo "could not post the incomplete-review notice"
