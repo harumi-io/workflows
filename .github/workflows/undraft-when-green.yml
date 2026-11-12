@@ -16,9 +16,12 @@
 # The token has to be a fine-grained PAT (or app token) with Pull requests: write, Contents: read
 # and Metadata: read.
 #
-# It only touches PRs authored by the token's owner, so other people's deliberate drafts stay
-# drafts. It does nothing, with a notice, when the secret is missing (fork PRs, or a repo that was
-# not granted it) and never fails the caller's CI over that.
+# Opt-in: it only touches a PR that carries the `ready-when-green` label, so a draft leaves draft
+# when its author says the work is complete, not on its first green push. Add the label before the
+# final push, or add it later and re-run just this job (the label is read from the live PR). It
+# also only touches PRs authored by the token's owner and PRs whose branch is in the same repo.
+# It does nothing, with a notice, when the secret is missing (fork PRs, or a repo that was not
+# granted it) and never fails the caller's CI over that.
 name: Undraft when green
 
 on:
@@ -53,12 +56,20 @@ jobs:
             exit 0
           fi
 
-          read -r DRAFT AUTHOR HEAD_SHA < <(gh api "repos/${REPO}/pulls/${PR_NUMBER}" \
-            --jq '"\(.draft) \(.user.login) \(.head.sha)"')
+          read -r DRAFT AUTHOR HEAD_SHA HEAD_REPO LABELLED < <(gh api "repos/${REPO}/pulls/${PR_NUMBER}" \
+            --jq '"\(.draft) \(.user.login) \(.head.sha) \(.head.repo.full_name // "none") \(any(.labels[]; .name == "ready-when-green"))"')
           OWNER=$(gh api user --jq .login)
 
           if [ "$DRAFT" != "true" ]; then
             echo "PR #${PR_NUMBER} is already ready for review."
+            exit 0
+          fi
+          if [ "$LABELLED" != "true" ]; then
+            echo "PR #${PR_NUMBER} has no 'ready-when-green' label, so its author has not said it is complete; leaving it a draft."
+            exit 0
+          fi
+          if [ "$HEAD_REPO" != "$REPO" ]; then
+            echo "PR #${PR_NUMBER} comes from ${HEAD_REPO}, not ${REPO}; not undrafting a fork's PR."
             exit 0
           fi
           if [ "$HEAD_SHA" != "$CI_SHA" ]; then

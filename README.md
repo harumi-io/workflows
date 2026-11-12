@@ -58,7 +58,12 @@ undraft:
     token: ${{ secrets.UNDRAFT_TOKEN }}
 ```
 
-`UNDRAFT_TOKEN` is a fine-grained PAT (Pull requests: write, Contents: read, Metadata: read), not
+It is opt-in: a PR is only undrafted when it carries the `ready-when-green` label, so a draft goes
+ready when its author says the work is complete, not on its first green push. Add the label before
+the final push, or add it later and re-run just the `undraft` job (the label is read from the live PR).
+
+`UNDRAFT_TOKEN` is a fine-grained PAT (Pull requests: write, Contents: write, Metadata: read), not
 `GITHUB_TOKEN`: a ready event made with `GITHUB_TOKEN` starts no other workflow, so the review bot
-would never run. The job only undrafts PRs authored by the token's owner, skips when a newer commit
-has landed, and does nothing (with a notice) when the secret is missing, so it never fails CI.
+would never run. GitHub also refuses the ready mutation without Contents write. The job only
+undrafts PRs authored by the token's owner, from a branch in the same repo, skips when a newer
+commit has landed, and does nothing (with a notice) when the secret is missing, so it never fails CI.
