@@ -1,0 +1,74 @@
+# Marks a draft PR ready for review once the caller's CI has passed, so the Claude review and the
+# board sync start right away and nothing has to watch CI to know when.
+#
+# Call it as the LAST job of a repo's main CI workflow, after the job that gates the rest:
+#
+#   undraft:
+#     needs: [verify]
+#     if: github.event_name == 'pull_request' && github.event.pull_request.draft
+#     permissions: {}
+#     uses: harumi-io/workflows/.github/workflows/undraft-when-green.yml@<sha> # v1
+#     secrets:
+#       token: ${{ secrets.UNDRAFT_TOKEN }}
+#
+# Why a token and not GITHUB_TOKEN: an event created with GITHUB_TOKEN starts no other workflow, so
+# a PR it marked ready would never trigger the review bot (`ready_for_review`) or the board sync.
+# The token has to be a fine-grained PAT (or app token) with Pull requests: write, Contents: read
+# and Metadata: read.
+#
+# It only touches PRs authored by the token's owner, so other people's deliberate drafts stay
+# drafts. It does nothing, with a notice, when the secret is missing (fork PRs, or a repo that was
+# not granted it) and never fails the caller's CI over that.
+name: Undraft when green
+
+on:
+  workflow_call:
+    secrets:
+      token:
+        description: Fine-grained PAT with Pull requests write, Contents read, Metadata read.
+        required: false
+
+permissions: {}
+
+jobs:
+  undraft:
+    name: Mark ready for review
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # The caller's `needs` + `if` already decided CI passed and the PR was a draft when it started.
+    # Everything that can have changed since is re-checked below, against the live PR.
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Mark the PR ready
+        env:
+          GH_TOKEN: ${{ secrets.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          CI_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::notice::No undraft token available here (fork PR, or the secret is not granted to this repo); leaving the PR as is."
+            exit 0
+          fi
+
+          read -r DRAFT AUTHOR HEAD_SHA < <(gh api "repos/${REPO}/pulls/${PR_NUMBER}" \
+            --jq '"\(.draft) \(.user.login) \(.head.sha)"')
+          OWNER=$(gh api user --jq .login)
+
+          if [ "$DRAFT" != "true" ]; then
+            echo "PR #${PR_NUMBER} is already ready for review."
+            exit 0
+          fi
+          if [ "$HEAD_SHA" != "$CI_SHA" ]; then
+            echo "PR #${PR_NUMBER} has a newer commit (${HEAD_SHA:0:7}) than the one CI passed on (${CI_SHA:0:7}); its own run will decide."
+            exit 0
+          fi
+          if [ "$AUTHOR" != "$OWNER" ]; then
+            echo "PR #${PR_NUMBER} is by ${AUTHOR}, not ${OWNER}; not undrafting someone else's draft."
+            exit 0
+          fi
+
+          gh pr ready "$PR_NUMBER" --repo "$REPO"
+          echo "Marked PR #${PR_NUMBER} ready for review."
