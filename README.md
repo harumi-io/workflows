@@ -41,3 +41,24 @@ the pin per repo like a dependency upgrade. Inputs and their defaults are docume
 
 A backwards-compatible change moves the tag: `git tag -f v1 && git push -f origin v1`. A breaking
 change (an input renamed or removed, a new required input) cuts `v2` and callers move deliberately.
+
+## Undraft when green
+
+`.github/workflows/undraft-when-green.yml` marks a draft PR ready for review once the caller's CI has
+passed, which starts the review bot and the board sync. Call it as the last job of a repo's main CI
+workflow, after the job that gates the rest:
+
+```yaml
+undraft:
+  needs: [verify]
+  if: github.event_name == 'pull_request' && github.event.pull_request.draft
+  permissions: {}
+  uses: harumi-io/workflows/.github/workflows/undraft-when-green.yml@v1
+  secrets:
+    token: ${{ secrets.UNDRAFT_TOKEN }}
+```
+
+`UNDRAFT_TOKEN` is a fine-grained PAT (Pull requests: write, Contents: read, Metadata: read), not
+`GITHUB_TOKEN`: a ready event made with `GITHUB_TOKEN` starts no other workflow, so the review bot
+would never run. The job only undrafts PRs authored by the token's owner, skips when a newer commit
+has landed, and does nothing (with a notice) when the secret is missing, so it never fails CI.
