@@ -253,9 +253,11 @@ jobs:
           # to a full one instead.
           if [ -n "$LAST_COMMIT" ] && git rev-parse --verify --quiet "${LAST_COMMIT}^{commit}" >/dev/null; then
             echo "Previous session found. Last reviewed commit: $LAST_COMMIT"
-            echo "HAS_PREVIOUS_SESSION=true" >> "$GITHUB_OUTPUT"
-            echo "MODEL=${MODEL_FOLLOWUP}" >> "$GITHUB_OUTPUT"
-            echo "MAX_TURNS=${TURNS_FOLLOWUP}" >> "$GITHUB_OUTPUT"
+            {
+              echo "HAS_PREVIOUS_SESSION=true"
+              echo "MODEL=${MODEL_FOLLOWUP}"
+              echo "MAX_TURNS=${TURNS_FOLLOWUP}"
+            } >> "$GITHUB_OUTPUT"
 
             if [ "$VERIFY_ONLY" = "true" ]; then
               # A later round only checks whether the earlier findings were fixed. The prompt is
@@ -304,9 +306,11 @@ jobs:
             else
               echo "No previous session found. Running full review."
             fi
-            echo "HAS_PREVIOUS_SESSION=false" >> "$GITHUB_OUTPUT"
-            echo "MODEL=${MODEL_FIRST}" >> "$GITHUB_OUTPUT"
-            echo "MAX_TURNS=${TURNS_FIRST}" >> "$GITHUB_OUTPUT"
+            {
+              echo "HAS_PREVIOUS_SESSION=false"
+              echo "MODEL=${MODEL_FIRST}"
+              echo "MAX_TURNS=${TURNS_FIRST}"
+            } >> "$GITHUB_OUTPUT"
 
             REVIEW_MODE=full
             PROMPT="$PROMPT_FULL"
