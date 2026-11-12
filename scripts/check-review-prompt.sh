@@ -83,6 +83,7 @@ grep -q "^MODEL=sonnet-followup$" "$TMP/out" && grep -q "^MAX_TURNS=20$" "$TMP/o
 P=$(prompt_of)
 grep -q "This is a FOLLOW-UP round, not a new review" <<<"$P" || fail "verify-only prompt missing"
 grep -q "Do NOT look for new bugs" <<<"$P" || fail "verify-only prompt must forbid new findings"
+grep -q "name the file and line of the change that fixes it" <<<"$P" || fail "verify-only must make each Addressed cite the fixing line"
 grep -q "INCREMENTAL SINCE" <<<"$P" && fail "verify-only must ignore the caller's prompt_simple"
 grep -q "LAST REVIEWED COMMIT: ${MID}" <<<"$P" || fail "verify-only prompt should name the last reviewed commit"
 grep -q "range: ${MID}\.\.${HEAD_SHA}" <<<"$P" || fail "follow-up should diff LAST..HEAD"
@@ -160,6 +161,7 @@ ruby -e '
   abort "FAIL: model default must be Opus for the first review, got #{first}" unless first.include?("opus")
   follow = inputs.fetch("followup_model").fetch("default")
   abort "FAIL: followup_model default must not be Opus, got #{follow}" if follow.include?("opus")
+  abort "FAIL: followup_model default should be Haiku, got #{follow}" unless follow.include?("haiku")
   abort "FAIL: verify_only must default to true" unless inputs.fetch("verify_only").fetch("default") == true
   abort "FAIL: followup_max_turns must stay below max_turns" unless inputs.fetch("followup_max_turns").fetch("default") < turns
 ' "$WORKFLOW"

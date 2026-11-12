@@ -51,12 +51,13 @@ on:
       followup_model:
         description: |
           Model for every later review of the same PR (a session cache exists). With `verify_only`
-          that is reading the fix and comparing it with the finding, which a smaller model does
-          well. `global.anthropic.claude-haiku-5-5` is cheaper still; try it if Sonnet proves more
-          than a verification needs.
+          that is reading the fix and comparing it with the finding, a narrow task a small model
+          handles well, so it defaults to Haiku 5.5. The risk is a skimmed, wrong "Addressed"; the
+          verify prompt makes each "Addressed" cite the line that fixes it, so a wrong one is easy
+          to spot. Move this back to `global.anthropic.claude-sonnet-5-5` if one ever slips through.
         required: false
         type: string
-        default: global.anthropic.claude-sonnet-5-5
+        default: global.anthropic.claude-haiku-5-5
       max_turns:
         description: |
           Turn ceiling for the first review: a runaway guard, not a budget. Findings are posted as
@@ -290,7 +291,9 @@ jobs:
 
           Report in ONE comment, with \`gh pr comment ${PR_NUMBER}\`, as a list with one line per
           earlier finding: its file and line, then Addressed or Not addressed, then at most one sentence
-          of why. Do not restate the original explanation. End with one line: \"All earlier findings
+          of why. For Addressed, name the file and line of the change that fixes it and the case it
+          covers (for example \"fixed at src/a.py:41, covers the empty-list case\"); if you cannot point
+          at such a line, it is Not addressed. Do not restate the original explanation. End with one line: \"All earlier findings
           addressed.\" or \"N of M earlier findings still open.\" If the PR has no earlier findings,
           post one line saying so. Post nothing else."
             else
