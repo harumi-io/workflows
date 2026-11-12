@@ -84,6 +84,7 @@ P=$(prompt_of)
 grep -q "This is a FOLLOW-UP round, not a new review" <<<"$P" || fail "verify-only prompt missing"
 grep -q "Do NOT look for new bugs" <<<"$P" || fail "verify-only prompt must forbid new findings"
 grep -q "name the file and line of the change that fixes it" <<<"$P" || fail "verify-only must make each Addressed cite the fixing line"
+grep -q "<!-- review-done sha=${HEAD_SHA} open=M -->" <<<"$P" || fail "verify-only must end with the review-done marker"
 grep -q "INCREMENTAL SINCE" <<<"$P" && fail "verify-only must ignore the caller's prompt_simple"
 grep -q "LAST REVIEWED COMMIT: ${MID}" <<<"$P" || fail "verify-only prompt should name the last reviewed commit"
 grep -q "range: ${MID}\.\.${HEAD_SHA}" <<<"$P" || fail "follow-up should diff LAST..HEAD"
@@ -180,6 +181,7 @@ for h in h1; do
     || fail "$h: prompt must forbid inline/diff-attached comments"
   grep -q "AS SOON AS you have confirmed it" <<<"$P" || fail "$h: prompt must forbid batching"
   grep -q "highest-severity first" <<<"$P" || fail "$h: prompt must order by severity"
+  grep -q "<!-- review-done sha=${HEAD_SHA} findings=N -->" <<<"$P" || fail "$h: summary must end with the review-done marker"
   grep -q "not post a duplicate" <<<"$P" || fail "$h: prompt must guard against re-posting"
 done
 # A follow-up (and verify_only=false) still reports through plain PR comments only.
